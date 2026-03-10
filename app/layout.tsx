@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     default: 'Gaucho Lax 2026',
     template: '%s · Gaucho Lax',
   },
-  description: 'UCSB Men\'s Lacrosse Stats & Schedule — live stats, game results, player profiles, and travel map for the 2026 MCLA season.',
+  description: 'UCSB Men\'s Lacrosse — 2026 Season Stats, Schedule & Travel Map',
   applicationName: 'Gaucho Lax',
   manifest: '/manifest.json',
 
@@ -58,6 +58,7 @@ export const metadata: Metadata = {
       { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
       { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
     ],
   },

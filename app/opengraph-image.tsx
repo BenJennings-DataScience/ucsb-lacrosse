@@ -184,7 +184,7 @@ export default function OGImage() {
                 letterSpacing: '0.3em',
               }}
             >
-              2026 MCLA SEASON
+              2026 Season Dashboard
             </span>
           </div>
         </div>
@@ -198,7 +198,7 @@ export default function OGImage() {
             letterSpacing: '0.06em',
           }}
         >
-          Stats · Schedule · Leaders · Travel Map
+          UCSB Men&apos;s Lacrosse · Go Gauchos
         </span>
       </div>
     </div>,
