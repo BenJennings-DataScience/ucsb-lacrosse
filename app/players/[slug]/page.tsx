@@ -74,10 +74,11 @@ function StatBox({ label, value, gold }: { label: string; value: string; gold?: 
 function parseWL(result: string): 'W' | 'L' | null {
   const m = result.match(/(\d+)\s*[-–]\s*(\d+)/);
   if (!m) return null;
-  const ours = parseInt(m[1]);
-  const theirs = parseInt(m[2]);
-  if (ours > theirs) return 'W';
-  if (ours < theirs) return 'L';
+  // Game log score format is "opponent_score - ucsb_score" (opponent first)
+  const opponent = parseInt(m[1]);
+  const ours = parseInt(m[2]);
+  if (ours > opponent) return 'W';
+  if (ours < opponent) return 'L';
   return null;
 }
 

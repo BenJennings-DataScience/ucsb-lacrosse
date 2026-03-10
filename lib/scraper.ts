@@ -333,9 +333,9 @@ export async function fetchPlayerProfile(slug: string): Promise<PlayerProfile> {
   const hometown = detailsMap['hometown'] || detailsMap['home'] || '';
   const eligibility = detailsMap['eligibility'] || detailsMap['elig'] || '';
 
-  // Game log: handle nested <tr> inside <tr>
+  // Game log: rows are direct children of tbody (not nested)
   const gameLog: GameLogEntry[] = [];
-  $('#player__stats-by-game tbody tr tr').each((_, row) => {
+  $('#player__stats-by-game tbody tr').each((_, row) => {
     const tds = $(row).find('td');
     if (!tds.length) return;
 

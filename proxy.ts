@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const AUTH_COOKIE = 'auth_token';
 const AUTH_VALUE = 'ucsb_lacrosse_authenticated';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow login page and login API through
