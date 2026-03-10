@@ -6,6 +6,8 @@ import ServiceWorker from './components/ServiceWorker';
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://gaucho-lax.vercel.app';
+
 export const viewport: Viewport = {
   themeColor: '#003660',
   width: 'device-width',
@@ -14,20 +16,44 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Gaucho Lax',
-  description: '2026 UCSB Men\'s Lacrosse stats, schedule, and travel map',
-  manifest: '/manifest.json',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'Gaucho Lax 2026',
+    template: '%s · Gaucho Lax',
+  },
+  description: 'UCSB Men\'s Lacrosse Stats & Schedule — live stats, game results, player profiles, and travel map for the 2026 MCLA season.',
   applicationName: 'Gaucho Lax',
-  appleWebApp: {
-    capable: true,
-    title: 'Gaucho Lax',
-    statusBarStyle: 'black-translucent',
+  manifest: '/manifest.json',
+
+  // ── Open Graph ──────────────────────────────────────────────────────────────
+  openGraph: {
+    type: 'website',
+    siteName: 'Gaucho Lax',
+    title: 'Gaucho Lax 2026',
+    description: 'UCSB Men\'s Lacrosse Stats & Schedule',
+    url: SITE_URL,
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'Gaucho Lax 2026 — UCSB Men\'s Lacrosse',
+      },
+    ],
   },
-  formatDetection: {
-    telephone: false,
+
+  // ── Twitter / X ─────────────────────────────────────────────────────────────
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Gaucho Lax 2026',
+    description: 'UCSB Men\'s Lacrosse Stats & Schedule',
+    images: ['/opengraph-image'],
   },
+
+  // ── Icons ────────────────────────────────────────────────────────────────────
   icons: {
     icon: [
+      { url: '/icon', type: 'image/png' },
       { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
       { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
     ],
@@ -35,13 +61,21 @@ export const metadata: Metadata = {
       { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
     ],
   },
+
+  // ── Apple PWA ────────────────────────────────────────────────────────────────
+  appleWebApp: {
+    capable: true,
+    title: 'Gaucho Lax',
+    statusBarStyle: 'black-translucent',
+  },
+
+  formatDetection: { telephone: false },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
-        {/* Splash / tile colors for Windows & older iOS */}
         <meta name="msapplication-TileColor" content="#003660" />
         <meta name="msapplication-TileImage" content="/icons/icon-192.png" />
       </head>
