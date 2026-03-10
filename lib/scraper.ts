@@ -379,3 +379,121 @@ export async function fetchPlayerProfile(slug: string): Promise<PlayerProfile> {
   playerProfileCache.set(slug, { data: profile, ts: Date.now() });
   return profile;
 }
+
+// ─── Polls ────────────────────────────────────────────────────────────────────
+
+export interface PollEntry {
+  rank: number;
+  team: string;
+  teamSlug: string;
+  record: string;
+  points: number;
+  firstPlaceVotes: number;
+  prevRank: number;
+  change: number;              // absolute spots moved (0 = no change)
+  changeDirection: 'up' | 'down' | 'none';
+}
+
+export interface PollWeek {
+  key: string;   // "week-2"
+  label: string; // "Week 2"
+}
+
+export interface PollData {
+  weekKey: string;
+  weekLabel: string;
+  availableWeeks: PollWeek[];
+  entries: PollEntry[];
+}
+
+const pollCache = new Map<string, { data: PollData; ts: number }>();
+
+export async function fetchPolls(weekKey?: string): Promise<PollData> {
+  const url = weekKey
+    ? `https://mcla.us/polls?division_id=d1&week_key=${weekKey}`
+    : 'https://mcla.us/polls?division_id=d1';
+
+  const cacheKey = weekKey ?? '__default__';
+  const cached = pollCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
+
+  const res = await fetch(url, FETCH_OPTS);
+  const html = await res.text();
+  const $ = cheerio.load(html);
+
+  // ── Available weeks ────────────────────────────────────────────────────────
+  const availableWeeks: PollWeek[] = [];
+  let activeWeekKey = weekKey ?? 'week-1';
+  let activeWeekLabel = '';
+
+  $('.week-selector__stage').closest('a').each((_, el) => {
+    const a = $(el);
+    const key = a.attr('data-key') ?? '';
+    const label = a.find('.stage__label').text().trim();
+    if (!key || !label) return;
+
+    // De-duplicate (mcla.us has a duplicate week-5 entry)
+    if (!availableWeeks.find((w) => w.key === key)) {
+      availableWeeks.push({ key, label });
+    }
+
+    if (a.hasClass('active-week')) {
+      activeWeekKey = key;
+      activeWeekLabel = label;
+    }
+  });
+
+  if (!activeWeekLabel) {
+    activeWeekLabel = availableWeeks.find((w) => w.key === activeWeekKey)?.label ?? activeWeekKey;
+  }
+
+  // ── Rankings table ─────────────────────────────────────────────────────────
+  const entries: PollEntry[] = [];
+
+  $('table tbody tr').each((_, row) => {
+    const tds = $(row).find('td');
+    if (tds.length < 5) return;
+
+    const rank = parseInt($(tds[0]).text().trim()) || 0;
+    if (!rank) return;
+
+    // Change cell: <span title="Up from #5" data-uk-icon="icon: triangle-up">2</span>
+    const changeSpan = $(tds[1]).find('span');
+    const icon = changeSpan.attr('data-uk-icon') ?? '';
+    const changeAmt = parseInt(changeSpan.text().trim()) || 0;
+    let changeDirection: PollEntry['changeDirection'] = 'none';
+    if (icon.includes('triangle-up'))   changeDirection = 'up';
+    if (icon.includes('triangle-down')) changeDirection = 'down';
+
+    const prevRank =
+      changeDirection === 'up'   ? rank + changeAmt :
+      changeDirection === 'down' ? rank - changeAmt :
+      rank;
+
+    // Team name & slug
+    const teamLink = $(tds[2]).find('a');
+    const team = teamLink.text().trim();
+    const href = teamLink.attr('href') ?? '';
+    // href format: /teams/uc-santa-barbara/2026/schedule
+    const teamSlug = href.split('/')[2] ?? '';
+
+    const record = $(tds[3]).text().trim();
+    const points = parseInt($(tds[4]).text().trim()) || 0;
+    const firstPlaceVotes = parseInt($(tds[5]).text().trim()) || 0;
+
+    entries.push({ rank, team, teamSlug, record, points, firstPlaceVotes, prevRank, change: changeAmt, changeDirection });
+  });
+
+  const data: PollData = {
+    weekKey: activeWeekKey,
+    weekLabel: activeWeekLabel,
+    availableWeeks,
+    entries,
+  };
+
+  pollCache.set(cacheKey, { data, ts: Date.now() });
+  // Also cache under the resolved week key
+  if (cacheKey === '__default__') pollCache.set(activeWeekKey, { data, ts: Date.now() });
+
+  return data;
+}

@@ -10,6 +10,7 @@ const links = [
   { href: '/stats', label: 'Stats' },
   { href: '/leaders', label: 'Leaders' },
   { href: '/map', label: 'Map' },
+  { href: '/polls', label: 'Polls' },
 ];
 
 export default function Nav() {
