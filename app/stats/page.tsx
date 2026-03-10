@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import Link from 'next/link';
 import { fetchStats } from '@/lib/scraper';
 import type { FieldPlayer, Goalie } from '@/lib/scraper';
 
@@ -86,7 +87,13 @@ function FieldTable({ players }: { players: FieldPlayer[] }) {
                 </td>
                 <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
                   {p.position && <PositionBadge pos={p.position} />}
-                  <span className="font-semibold">{p.name}</span>
+                  {p.slug ? (
+                    <Link href={`/players/${p.slug}`} style={{ color: 'var(--text)', textDecoration: 'none', fontWeight: 600 }} className="hover:underline">
+                      {p.name}
+                    </Link>
+                  ) : (
+                    <span className="font-semibold">{p.name}</span>
+                  )}
                 </td>
                 <td style={{ color: 'var(--muted)' }}>{p.eligibility || '—'}</td>
                 <Td value={p.gp} />
@@ -140,7 +147,13 @@ function GoalieTable({ goalies }: { goalies: Goalie[] }) {
                 </td>
                 <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
                   <PositionBadge pos="G" />
-                  <span className="font-semibold">{g.name}</span>
+                  {g.slug ? (
+                    <Link href={`/players/${g.slug}`} style={{ color: 'var(--text)', textDecoration: 'none', fontWeight: 600 }} className="hover:underline">
+                      {g.name}
+                    </Link>
+                  ) : (
+                    <span className="font-semibold">{g.name}</span>
+                  )}
                 </td>
                 <td style={{ color: 'var(--muted)' }}>{g.eligibility || '—'}</td>
                 <Td value={g.gp} />

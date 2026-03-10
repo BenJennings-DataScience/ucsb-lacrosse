@@ -1,11 +1,13 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import SearchBar from './SearchBar';
 
 const links = [
   { href: '/', label: 'Home' },
   { href: '/schedule', label: 'Schedule' },
   { href: '/stats', label: 'Stats' },
+  { href: '/leaders', label: 'Leaders' },
 ];
 
 export default function Nav() {
@@ -24,23 +26,26 @@ export default function Nav() {
             UCSB <span style={{ color: '#FEBC11' }}>LACROSSE</span>
           </span>
         </Link>
-        <div className="flex gap-1">
-          {links.map(({ href, label }) => {
-            const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className="px-4 py-2 rounded text-sm font-semibold transition-colors"
-                style={{
-                  backgroundColor: active ? '#FEBC11' : 'transparent',
-                  color: active ? '#003660' : 'rgba(255,255,255,0.85)',
-                }}
-              >
-                {label}
-              </Link>
-            );
-          })}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            {links.map(({ href, label }) => {
+              const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className="px-4 py-2 rounded text-sm font-semibold transition-colors"
+                  style={{
+                    backgroundColor: active ? '#FEBC11' : 'transparent',
+                    color: active ? '#003660' : 'rgba(255,255,255,0.85)',
+                  }}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </div>
+          <SearchBar />
         </div>
       </div>
     </nav>

@@ -26,6 +26,7 @@ export interface ScheduleData {
 }
 
 export interface FieldPlayer {
+  slug: string;
   jersey: string;
   name: string;
   position: string;
@@ -43,6 +44,7 @@ export interface FieldPlayer {
 }
 
 export interface Goalie {
+  slug: string;
   jersey: string;
   name: string;
   eligibility: string;
@@ -59,6 +61,47 @@ export interface StatsData {
   goalies: Goalie[];
 }
 
+export interface RosterPlayer {
+  slug: string;
+  name: string;
+  jersey: string;
+  position: string;
+  classYear: string;
+  eligibility: string;
+  height: string;
+  weight: string;
+  hometown: string;
+  photoUrl: string | null;
+}
+
+export interface GameLogEntry {
+  date: string;
+  opponent: string;
+  result: string;
+  played: boolean;
+  groundBalls: string;
+  shots: string;
+  goals: string;
+  assists: string;
+  saves: string;
+  faceoffWins: string;
+  faceoffLosses: string;
+}
+
+export interface PlayerProfile {
+  slug: string;
+  name: string;
+  jersey: string;
+  position: string;
+  classYear: string;
+  eligibility: string;
+  height: string;
+  weight: string;
+  hometown: string;
+  photoUrl: string | null;
+  gameLog: GameLogEntry[];
+}
+
 const FETCH_OPTS = {
   headers: { 'User-Agent': 'Mozilla/5.0 (compatible; UCSB-Dashboard/1.0)' },
 };
@@ -67,6 +110,8 @@ const FETCH_OPTS = {
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 let scheduleCache: { data: ScheduleData; ts: number } | null = null;
 let statsCache: { data: StatsData; ts: number } | null = null;
+let rosterCache: { data: RosterPlayer[]; ts: number } | null = null;
+const playerProfileCache = new Map<string, { data: PlayerProfile; ts: number }>();
 
 // ─── Schedule ────────────────────────────────────────────────────────────────
 export async function fetchSchedule(): Promise<ScheduleData> {
@@ -142,12 +187,16 @@ export async function fetchStats(): Promise<StatsData> {
       const playerLink = $(tds[1]).find('a[href*="/players/"]');
       if (!playerLink.length) return;
 
+      const href = playerLink.attr('href') || '';
+      const slug = href.replace('/players/', '');
+
       const jersey = $(tds[0]).text().trim();
       const name = playerLink.text().trim();
       const position = $(tds[1]).find('.position').text().trim();
 
       if (isGoalie) {
         goalies.push({
+          slug,
           jersey,
           name,
           eligibility: $(tds[2]).text().trim(),
@@ -160,6 +209,7 @@ export async function fetchStats(): Promise<StatsData> {
         });
       } else {
         fieldPlayers.push({
+          slug,
           jersey,
           name,
           position,
@@ -184,4 +234,148 @@ export async function fetchStats(): Promise<StatsData> {
   const data: StatsData = { fieldPlayers, goalies };
   statsCache = { data, ts: Date.now() };
   return data;
+}
+
+// ─── Roster ──────────────────────────────────────────────────────────────────
+export async function fetchRoster(): Promise<RosterPlayer[]> {
+  if (rosterCache && Date.now() - rosterCache.ts < CACHE_TTL) {
+    return rosterCache.data;
+  }
+
+  const res = await fetch('https://mcla.us/teams/uc-santa-barbara/2026/roster', FETCH_OPTS);
+  const html = await res.text();
+  const $ = cheerio.load(html);
+
+  const players: RosterPlayer[] = [];
+
+  $('.player-tile').each((_, el) => {
+    const tile = $(el);
+
+    // Extract slug from href
+    const headshotLink = tile.find('.player-tile__headshot a');
+    const href = headshotLink.attr('href') || '';
+    const slug = href.replace('/players/', '');
+
+    // Extract photo URL
+    const img = tile.find('.player-tile__headshot img');
+    const photoUrl = img.attr('src') || null;
+
+    // Extract name and jersey from name element
+    // Format: "17\n      Nathaniel Alim"
+    const nameRaw = tile.find('.player-tile__name').text();
+    const nameParts = nameRaw.split('\n').map((s) => s.trim()).filter(Boolean);
+    const jersey = nameParts[0] || '';
+    const name = nameParts.slice(1).join(' ').trim() || nameParts[0] || '';
+
+    // Extract meta: [0]=position, [1]=classYear, [2]=eligibility, [3]=height, [4]=weight
+    const metaItems = tile.find('.player-tile__meta p');
+    const position = $(metaItems[0]).text().trim();
+    const classYear = $(metaItems[1]).text().trim();
+    const eligibility = $(metaItems[2]).text().trim();
+    const height = $(metaItems[3]).text().trim();
+    const weight = $(metaItems[4]).text().trim();
+
+    // Extract hometown
+    const hometown = tile.find('.player-tile__location').text().trim();
+
+    if (!slug) return;
+
+    players.push({
+      slug,
+      name,
+      jersey,
+      position,
+      classYear,
+      eligibility,
+      height,
+      weight,
+      hometown,
+      photoUrl,
+    });
+  });
+
+  rosterCache = { data: players, ts: Date.now() };
+  return players;
+}
+
+// ─── Player Profile ───────────────────────────────────────────────────────────
+export async function fetchPlayerProfile(slug: string): Promise<PlayerProfile> {
+  const cached = playerProfileCache.get(slug);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return cached.data;
+  }
+
+  const res = await fetch(`https://mcla.us/players/${slug}`, FETCH_OPTS);
+  const html = await res.text();
+  const $ = cheerio.load(html);
+
+  // Photo URL
+  const photoUrl = $('.player-header img').attr('src') || null;
+
+  // Jersey
+  const jersey = $('.player-header__jersey').text().trim();
+
+  // Name
+  const name = $('.player-header__name').text().trim();
+
+  // Details: build label → value map
+  const detailsMap: Record<string, string> = {};
+  $('.player-header__details li').each((_, li) => {
+    const label = $(li).find('label').text().trim().toLowerCase();
+    const value = $(li).find('span').text().trim();
+    if (label) detailsMap[label] = value;
+  });
+
+  const position = detailsMap['position'] || detailsMap['pos'] || '';
+  const classYear = detailsMap['class'] || detailsMap['year'] || '';
+  const height = detailsMap['height'] || detailsMap['ht'] || '';
+  const weight = detailsMap['weight'] || detailsMap['wt'] || '';
+  const hometown = detailsMap['hometown'] || detailsMap['home'] || '';
+  const eligibility = detailsMap['eligibility'] || detailsMap['elig'] || '';
+
+  // Game log: handle nested <tr> inside <tr>
+  const gameLog: GameLogEntry[] = [];
+  $('#player__stats-by-game tbody tr tr').each((_, row) => {
+    const tds = $(row).find('td');
+    if (!tds.length) return;
+
+    const getCellText = (idx: number) => $(tds[idx]).find('.value').text().trim() || $(tds[idx]).text().trim();
+
+    const date = getCellText(0);
+    const opponent = getCellText(1);
+    const result = getCellText(2);
+    const gpVal = getCellText(3);
+    const played = ['1', 'y', 'yes', 'true'].includes(gpVal.toLowerCase());
+
+    gameLog.push({
+      date,
+      opponent,
+      result,
+      played,
+      groundBalls: getCellText(4),
+      shots: getCellText(5),
+      goals: getCellText(6),
+      assists: getCellText(7),
+      saves: getCellText(8),
+      faceoffWins: getCellText(9),
+      faceoffLosses: getCellText(10),
+    });
+  });
+
+  const profile: PlayerProfile = {
+    slug,
+    name,
+    jersey,
+    position,
+    classYear,
+    eligibility,
+    height,
+    weight,
+    hometown,
+    photoUrl,
+    gameLog,
+  };
+
+  playerProfileCache.set(slug, { data: profile, ts: Date.now() });
+  return profile;
 }
