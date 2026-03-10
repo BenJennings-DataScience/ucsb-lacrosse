@@ -8,6 +8,7 @@ const links = [
   { href: '/schedule', label: 'Schedule' },
   { href: '/stats', label: 'Stats' },
   { href: '/leaders', label: 'Leaders' },
+  { href: '/map', label: 'Map' },
 ];
 
 export default function Nav() {
