@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import SearchBar from './SearchBar';
 
@@ -17,12 +18,14 @@ export default function Nav() {
     <nav style={{ backgroundColor: '#003660' }} className="sticky top-0 z-50 shadow-lg">
       <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-16">
         <Link href="/" className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center font-black text-sm"
-            style={{ backgroundColor: '#FEBC11', color: '#003660' }}
-          >
-            UC
-          </div>
+          <Image
+            src="/gaucho-logo.png"
+            alt="Gaucho Lax"
+            width={40}
+            height={40}
+            className="rounded-full"
+            style={{ objectFit: 'cover' }}
+          />
           <span className="font-bold text-white text-lg tracking-wide">
             UCSB <span style={{ color: '#FEBC11' }}>LACROSSE</span>
           </span>

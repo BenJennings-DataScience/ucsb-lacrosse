@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { fetchSchedule } from '@/lib/scraper';
 import type { Game } from '@/lib/scraper';
 
@@ -88,11 +89,23 @@ export default async function HomePage() {
           }}
         />
         <div className="relative">
-          <p className="section-title">2026 Season</p>
-          <h1 className="text-4xl font-black text-white mb-1">
-            UCSB <span style={{ color: '#FEBC11' }}>Gauchos</span>
-          </h1>
-          <p style={{ color: 'var(--muted)' }} className="text-sm mb-6">
+          <div className="flex items-center gap-5 mb-4">
+            <Image
+              src="/gaucho-logo.png"
+              alt="Gaucho Lax"
+              width={120}
+              height={120}
+              className="rounded-full"
+              style={{ objectFit: 'cover', border: '3px solid #FEBC11' }}
+            />
+            <div>
+              <p className="section-title" style={{ marginBottom: '0.25rem' }}>2026 Season</p>
+              <h1 className="text-4xl font-black text-white mb-1">
+                UCSB <span style={{ color: '#FEBC11' }}>Gauchos</span>
+              </h1>
+            </div>
+          </div>
+          <p style={{ color: 'var(--muted)' }} className="text-sm mb-6" >
             Men&apos;s Lacrosse &mdash; MCLA
           </p>
 
