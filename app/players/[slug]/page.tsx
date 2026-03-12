@@ -71,9 +71,18 @@ function StatBox({ label, value, gold }: { label: string; value: string; gold?: 
   );
 }
 
+function parseWL(result: string | null | undefined): 'W' | 'L' | null {
+  if (!result) return null;
+  const first = result.trim().charAt(0).toUpperCase();
+  if (first === 'W') return 'W';
+  if (first === 'L') return 'L';
+  return null;
+}
+
 function GameLogRow({ entry, isEven }: { entry: GameLogEntry; isEven: boolean }) {
-  const isWin = entry.wl === 'W';
-  const isLoss = entry.wl === 'L';
+  const wl = parseWL(entry.result);
+  const isWin = wl === 'W';
+  const isLoss = wl === 'L';
   const points = (parseInt(entry.goals) || 0) + (parseInt(entry.assists) || 0);
 
   return (
