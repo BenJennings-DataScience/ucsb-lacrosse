@@ -39,6 +39,7 @@ const NAV_ITEMS: NavItem[] = [
     items: [
       { href: '/keg', label: 'Fund a Keg 🍺' },
       { href: '/donate', label: 'Donate' },
+      { href: '/duels', label: 'Gaucho Duel ⚔️' },
     ],
   },
 ];

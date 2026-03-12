@@ -6,6 +6,7 @@ import { fetchSchedule } from '@/lib/scraper';
 import type { Game } from '@/lib/scraper';
 import NewsTicker from '@/app/components/NewsTicker';
 import VideoReel from '@/app/components/VideoReel';
+import DuelsWidget from '@/app/components/DuelsWidget';
 
 function ResultBadge({ result }: { result: string | null }) {
   if (!result) return <span className="badge-upcoming">Upcoming</span>;
@@ -229,6 +230,11 @@ export default async function HomePage() {
         <div style={{ padding: '0.75rem' }}>
           <VideoReel />
         </div>
+      </div>
+
+      {/* This Week's Duels */}
+      <div className="mb-6">
+        <DuelsWidget />
       </div>
 
       {/* Quick links */}
