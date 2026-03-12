@@ -72,14 +72,17 @@ export async function syncScheduleToSupabase(data: ScheduleData): Promise<void> 
   }
 
   for (const game of data.games) {
-    // Only persist games that have been played
-    if (!game.result || !game.score) continue;
-
     const isoDate = toIsoDate(game.month, game.date);
     if (!isoDate) continue;
 
-    const { ucsbScore, opponentScore } = parseScores(game.score);
-    const isWin = game.result.toUpperCase().startsWith('W');
+    const { ucsbScore, opponentScore } = parseScores(game.score ?? null);
+
+    let isWin: boolean | null = null;
+    if (game.result) {
+      const r = game.result.trim().toUpperCase();
+      if (r.startsWith('W')) isWin = true;
+      else if (r.startsWith('L')) isWin = false;
+    }
 
     const { data: existing } = await supabase
       .from('games')

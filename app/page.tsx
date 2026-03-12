@@ -4,6 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { fetchSchedule } from '@/lib/scraper';
 import type { Game } from '@/lib/scraper';
+import NewsTicker from '@/app/components/NewsTicker';
+import VideoReel from '@/app/components/VideoReel';
 
 function ResultBadge({ result }: { result: string | null }) {
   if (!result) return <span className="badge-upcoming">Upcoming</span>;
@@ -186,6 +188,46 @@ export default async function HomePage() {
               All results →
             </Link>
           </div>
+        </div>
+      </div>
+
+      {/* Gaucho News */}
+      <div
+        className="mb-6"
+        style={{
+          border: '1px solid #1e3a5f',
+          borderRadius: 14,
+          overflow: 'hidden',
+          background: '#060f1c',
+        }}
+      >
+        <div style={{ padding: '1rem 1.25rem 0.75rem', borderBottom: '1px solid #1e3a5f' }}>
+          <p className="section-title" style={{ margin: 0, color: '#FEBC11' }}>
+            🥍 Gaucho News
+          </p>
+        </div>
+        <div style={{ padding: '0.75rem' }}>
+          <NewsTicker />
+        </div>
+      </div>
+
+      {/* Gaucho Reels */}
+      <div
+        className="mb-6"
+        style={{
+          border: '1px solid #1e3a5f',
+          borderRadius: 14,
+          overflow: 'hidden',
+          background: '#060f1c',
+        }}
+      >
+        <div style={{ padding: '1rem 1.25rem 0.75rem', borderBottom: '1px solid #1e3a5f' }}>
+          <p className="section-title" style={{ margin: 0, color: '#FEBC11' }}>
+            📺 Gaucho Reels
+          </p>
+        </div>
+        <div style={{ padding: '0.75rem' }}>
+          <VideoReel />
         </div>
       </div>
 
