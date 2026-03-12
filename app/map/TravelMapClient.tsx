@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Popup, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import type { MapGame } from './page';
+import type { MapGame, MapHometown } from './page';
 
 const UCSB: [number, number] = [34.414, -119.8489];
 const GOLD = '#FEBC11';
@@ -32,26 +32,72 @@ function textColor(bg: string): string {
   return bg === GOLD ? NAVY : '#ffffff';
 }
 
-function makeIcon(num: number, color: string, isHome: boolean) {
+function makeIcon(num: number, color: string) {
   const bg = color;
   const fg = textColor(bg);
-  const size = isHome ? 36 : 30;
-  const border = isHome ? '3px solid white' : '2px solid rgba(255,255,255,0.7)';
-  const shadow = '0 2px 8px rgba(0,0,0,0.7)';
+  const size = 30;
   return L.divIcon({
     className: '',
     html: `<div style="
       background:${bg};color:${fg};
       width:${size}px;height:${size}px;border-radius:50%;
       display:flex;align-items:center;justify-content:center;
-      font-weight:900;font-size:${isHome ? 11 : 10}px;
-      border:${border};box-shadow:${shadow};
+      font-weight:900;font-size:10px;
+      border:2px solid rgba(255,255,255,0.7);box-shadow:0 2px 8px rgba(0,0,0,0.7);
       font-family:system-ui,sans-serif;
       pointer-events:none;
-    ">${isHome ? '⌂' : num}</div>`,
+    ">${num}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
     popupAnchor: [0, -(size / 2 + 4)],
+  });
+}
+
+function makeHomeGameIcon(num: number, result: 'W' | 'L' | null) {
+  const resultColor = result === 'W' ? GOLD : result === 'L' ? RED : GREY;
+  const size = 40;
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      background:${NAVY};
+      width:${size}px;height:${size}px;border-radius:7px;
+      display:flex;align-items:center;justify-content:center;
+      font-weight:900;
+      border:3px solid ${GOLD};box-shadow:0 3px 10px rgba(0,0,0,0.8);
+      font-family:system-ui,sans-serif;
+      pointer-events:none;
+      position:relative;overflow:hidden;
+    ">
+      <span style="color:${GOLD};font-size:13px;line-height:1">${num}</span>
+      <div style="position:absolute;bottom:0;left:0;right:0;height:5px;background:${resultColor}"></div>
+    </div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -(size / 2 + 4)],
+  });
+}
+
+function makeHometownIcon(photoUrl: string | null) {
+  const size = 38;
+  const inner = photoUrl
+    ? `<img src="${photoUrl}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:50%;display:block;" />`
+    : `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${NAVY};display:flex;align-items:center;justify-content:center;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="${GOLD}">
+          <path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v2h20v-2c0-3.33-6.67-5-10-5z"/>
+        </svg>
+      </div>`;
+  const outer = size + 6;
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:${outer}px;height:${outer}px;border-radius:50%;
+      border:2px solid ${GOLD};outline:2px solid ${NAVY};
+      box-shadow:0 2px 8px rgba(0,0,0,0.7);
+      overflow:hidden;background:${NAVY};
+    ">${inner}</div>`,
+    iconSize: [outer, outer],
+    iconAnchor: [outer / 2, outer / 2],
+    popupAnchor: [0, -(outer / 2 + 4)],
   });
 }
 
@@ -59,25 +105,31 @@ function homeIcon() {
   return L.divIcon({
     className: '',
     html: `<div style="
-      background:${NAVY};color:${GOLD};
+      background:${NAVY};
       width:38px;height:38px;border-radius:50%;
       display:flex;align-items:center;justify-content:center;
-      font-weight:900;font-size:16px;
       border:3px solid ${GOLD};box-shadow:0 2px 8px rgba(0,0,0,0.7);
-      font-family:system-ui,sans-serif;
       pointer-events:none;
-    ">⌂</div>`,
+    ">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="${GOLD}">
+        <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+      </svg>
+    </div>`,
     iconSize: [38, 38],
     iconAnchor: [19, 19],
     popupAnchor: [0, -23],
   });
 }
 
+type LayerMode = 'games' | 'hometowns' | 'both';
+
 interface Props {
   games: MapGame[];
+  hometowns: MapHometown[];
 }
 
-export default function TravelMapClient({ games }: Props) {
+export default function TravelMapClient({ games, hometowns }: Props) {
+  const [mode, setMode] = useState<LayerMode>('games');
   // Route: start at UCSB, then each game location in order
   const routePoints: [number, number][] = [
     UCSB,
@@ -118,6 +170,32 @@ export default function TravelMapClient({ games }: Props) {
     <div style={{ fontFamily: 'system-ui, sans-serif' }}>
       {/* Map */}
       <div style={{ height: 'calc(100vh - 200px)', minHeight: 480, position: 'relative' }}>
+        {/* Layer filter overlay */}
+        <div style={{
+          position: 'absolute', top: 10, right: 10, zIndex: 1001,
+          display: 'flex', gap: 3,
+          background: 'rgba(11,17,32,0.92)',
+          border: '1px solid #1e3a5f',
+          borderRadius: 8, padding: 4,
+        }}>
+          {(['games', 'hometowns', 'both'] as LayerMode[]).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              style={{
+                padding: '4px 10px', fontSize: 11, fontWeight: 700,
+                borderRadius: 5, border: 'none', cursor: 'pointer',
+                background: mode === m ? GOLD : 'transparent',
+                color: mode === m ? NAVY : '#94a3b8',
+                textTransform: 'capitalize',
+                transition: 'background 0.15s',
+              }}
+            >
+              {m === 'both' ? 'Both' : m.charAt(0).toUpperCase() + m.slice(1)}
+            </button>
+          ))}
+        </div>
+
         <MapContainer
           center={[38.5, -112]}
           zoom={5}
@@ -131,8 +209,8 @@ export default function TravelMapClient({ games }: Props) {
             maxZoom={19}
           />
 
-          {/* Animated journey line */}
-          {drawnPoints.length >= 2 && (
+          {/* Animated journey line — games layer only */}
+          {(mode === 'games' || mode === 'both') && drawnPoints.length >= 2 && (
             <Polyline
               positions={drawnPoints}
               pathOptions={{
@@ -144,7 +222,7 @@ export default function TravelMapClient({ games }: Props) {
             />
           )}
 
-          {/* UCSB home base marker */}
+          {/* UCSB home base marker — always visible */}
           <Marker position={UCSB} icon={homeIcon()}>
             <Popup>
               <div style={{ fontFamily: 'system-ui', minWidth: 160 }}>
@@ -158,14 +236,16 @@ export default function TravelMapClient({ games }: Props) {
           </Marker>
 
           {/* Game markers */}
-          {games.map((game) => {
+          {(mode === 'games' || mode === 'both') && games.map((game) => {
             const color = pinColor(game.result);
             const isHomeGame = !game.isAway;
-            const icon = makeIcon(game.gameNumber, color, isHomeGame);
+            const icon = isHomeGame
+              ? makeHomeGameIcon(game.gameNumber, game.result)
+              : makeIcon(game.gameNumber, pinColor(game.result));
             const pos: [number, number] = [game.lat, game.lng];
 
             return (
-              <Marker key={game.gameNumber} position={pos} icon={icon}>
+              <Marker key={`game-${game.gameNumber}`} position={pos} icon={icon}>
                 <Popup>
                   <div style={{ fontFamily: 'system-ui', minWidth: 180 }}>
                     <div
@@ -202,6 +282,39 @@ export default function TravelMapClient({ games }: Props) {
               </Marker>
             );
           })}
+
+          {/* Hometown markers */}
+          {(mode === 'hometowns' || mode === 'both') && hometowns.map((h) => (
+            <Marker key={`hometown-${h.id}`} position={[h.lat, h.lng]} icon={makeHometownIcon(h.photoUrl)}>
+              <Popup>
+                <div style={{ fontFamily: 'system-ui', minWidth: 170 }}>
+                  {h.photoUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={h.photoUrl}
+                      alt={h.name}
+                      style={{ width: 56, height: 64, objectFit: 'cover', borderRadius: 6, float: 'left', marginRight: 10, marginBottom: 4 }}
+                    />
+                  )}
+                  <div style={{ fontWeight: 900, fontSize: 14, color: NAVY, marginBottom: 2 }}>{h.name}</div>
+                  {h.position && <div style={{ fontSize: 11, color: '#555', marginBottom: 1 }}>{h.position}{h.jersey ? ` · #${h.jersey}` : ''}</div>}
+                  <div style={{ fontSize: 12, color: '#777', marginBottom: 6 }}>{h.hometown}</div>
+                  {h.slug && (
+                    <a
+                      href={`/players/${h.slug}`}
+                      style={{ fontSize: 11, color: NAVY, fontWeight: 700, textDecoration: 'underline' }}
+                    >
+                      View profile →
+                    </a>
+                  )}
+                  <div style={{ clear: 'both' }} />
+                </div>
+              </Popup>
+              <Tooltip direction="top" offset={[0, -23]} opacity={0.92}>
+                {h.name} · {h.hometown}
+              </Tooltip>
+            </Marker>
+          ))}
         </MapContainer>
       </div>
 
@@ -234,10 +347,15 @@ export default function TravelMapClient({ games }: Props) {
 
           {/* Right: legend */}
           <div className="flex items-center gap-4">
-            <LegendDot color={GOLD} label="Win" />
-            <LegendDot color={RED} label="Loss" />
-            <LegendDot color={GREY} label="Upcoming" />
-            <LegendDot color={NAVY} label="Home" border={GOLD} />
+            {(mode === 'games' || mode === 'both') && <>
+              <LegendDot color={GOLD} label="Win" />
+              <LegendDot color={RED} label="Loss" />
+              <LegendDot color={GREY} label="Upcoming" />
+              <LegendDot color={NAVY} label="Home game" border={GOLD} />
+            </>}
+            {(mode === 'hometowns' || mode === 'both') && (
+              <LegendDot color={NAVY} label="Hometown" border={GOLD} />
+            )}
           </div>
         </div>
       </div>

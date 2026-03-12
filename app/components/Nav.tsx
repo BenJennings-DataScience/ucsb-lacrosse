@@ -10,7 +10,10 @@ const links = [
   { href: '/stats', label: 'Stats' },
   { href: '/leaders', label: 'Leaders' },
   { href: '/map', label: 'Map' },
+  { href: '/hometowns', label: 'Hometowns' },
   { href: '/polls', label: 'Polls' },
+  { href: '/keg', label: 'Fund a Keg 🍺' },
+  { href: '/donate', label: 'Donate' },
 ];
 
 export default function Nav() {

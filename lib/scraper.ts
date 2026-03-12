@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { syncScheduleToSupabase, syncRosterToSupabase, syncStatsToSupabase } from './supabaseSync';
 
 export interface Game {
   day: string;
@@ -71,6 +72,8 @@ export interface RosterPlayer {
   height: string;
   weight: string;
   hometown: string;
+  hometownCity: string;
+  hometownState: string;
   photoUrl: string | null;
 }
 
@@ -86,6 +89,7 @@ export interface GameLogEntry {
   saves: string;
   faceoffWins: string;
   faceoffLosses: string;
+  wl: 'W' | 'L' | null; // resolved from schedule page — single source of truth
 }
 
 export interface PlayerProfile {
@@ -105,6 +109,11 @@ export interface PlayerProfile {
 const FETCH_OPTS = {
   headers: { 'User-Agent': 'Mozilla/5.0 (compatible; UCSB-Dashboard/1.0)' },
 };
+
+// Strip leading @, poll rankings (#17), and extra whitespace for fuzzy matching
+function normalizeOpponent(name: string): string {
+  return name.replace(/^@\s*/, '').replace(/#\d+\s*/g, '').trim().toLowerCase();
+}
 
 // ─── Simple in-process cache ────────────────────────────────────────────────
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
@@ -161,6 +170,10 @@ export async function fetchSchedule(): Promise<ScheduleData> {
 
   const data: ScheduleData = { record, games };
   scheduleCache = { data, ts: Date.now() };
+  // Persist to Supabase asynchronously — don't block the API response
+  syncScheduleToSupabase(data).catch((err) =>
+    console.error('[Supabase sync] schedule:', err)
+  );
   return data;
 }
 
@@ -233,6 +246,10 @@ export async function fetchStats(): Promise<StatsData> {
 
   const data: StatsData = { fieldPlayers, goalies };
   statsCache = { data, ts: Date.now() };
+  // Persist to Supabase asynchronously — don't block the API response
+  syncStatsToSupabase(data).catch((err) =>
+    console.error('[Supabase sync] stats:', err)
+  );
   return data;
 }
 
@@ -277,6 +294,9 @@ export async function fetchRoster(): Promise<RosterPlayer[]> {
 
     // Extract hometown
     const hometown = tile.find('.player-tile__location').text().trim();
+    const hometownParts = hometown.split(',').map((s) => s.trim());
+    const hometownCity = hometownParts[0] || '';
+    const hometownState = hometownParts[1] || '';
 
     if (!slug) return;
 
@@ -290,11 +310,17 @@ export async function fetchRoster(): Promise<RosterPlayer[]> {
       height,
       weight,
       hometown,
+      hometownCity,
+      hometownState,
       photoUrl,
     });
   });
 
   rosterCache = { data: players, ts: Date.now() };
+  // Persist to Supabase asynchronously — don't block the API response
+  syncRosterToSupabase(players).catch((err) =>
+    console.error('[Supabase sync] roster:', err)
+  );
   return players;
 }
 
@@ -359,8 +385,30 @@ export async function fetchPlayerProfile(slug: string): Promise<PlayerProfile> {
       saves: getCellText(8),
       faceoffWins: getCellText(9),
       faceoffLosses: getCellText(10),
+      wl: null, // resolved below
     });
   });
+
+  // Resolve W/L from the schedule page — that's the authoritative source
+  try {
+    const schedule = await fetchSchedule();
+    for (const entry of gameLog) {
+      const entryOpp = normalizeOpponent(entry.opponent);
+      const entryDate = entry.date.trim().toLowerCase();
+      const match = schedule.games.find((g) => {
+        return (
+          normalizeOpponent(g.opponent) === entryOpp &&
+          `${g.month} ${g.date}`.trim().toLowerCase() === entryDate
+        );
+      });
+      if (match?.result) {
+        const first = match.result.trim()[0]?.toUpperCase();
+        entry.wl = first === 'W' ? 'W' : first === 'L' ? 'L' : null;
+      }
+    }
+  } catch {
+    // schedule fetch failed — wl stays null, no badges shown
+  }
 
   const profile: PlayerProfile = {
     slug,

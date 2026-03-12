@@ -71,21 +71,9 @@ function StatBox({ label, value, gold }: { label: string; value: string; gold?: 
   );
 }
 
-function parseWL(result: string): 'W' | 'L' | null {
-  const m = result.match(/(\d+)\s*[-–]\s*(\d+)/);
-  if (!m) return null;
-  // Game log score format is "opponent_score - ucsb_score" (opponent first)
-  const opponent = parseInt(m[1]);
-  const ours = parseInt(m[2]);
-  if (ours > opponent) return 'W';
-  if (ours < opponent) return 'L';
-  return null;
-}
-
 function GameLogRow({ entry, isEven }: { entry: GameLogEntry; isEven: boolean }) {
-  const wl = parseWL(entry.result);
-  const isWin = wl === 'W';
-  const isLoss = wl === 'L';
+  const isWin = entry.wl === 'W';
+  const isLoss = entry.wl === 'L';
   const points = (parseInt(entry.goals) || 0) + (parseInt(entry.assists) || 0);
 
   return (
@@ -103,7 +91,7 @@ function GameLogRow({ entry, isEven }: { entry: GameLogEntry; isEven: boolean })
           <span className="badge-loss">L</span>
         ) : null}
         {entry.result ? (
-          <span style={{ color: 'var(--muted)', fontSize: '0.78rem', marginLeft: wl ? '0.4rem' : 0 }}>
+          <span style={{ color: 'var(--muted)', fontSize: '0.78rem', marginLeft: entry.wl ? '0.4rem' : 0 }}>
             {entry.result}
           </span>
         ) : <span style={{ color: 'var(--muted)' }}>—</span>}

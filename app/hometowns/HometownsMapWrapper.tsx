@@ -1,9 +1,9 @@
 'use client';
 
 import dynamicImport from 'next/dynamic';
-import type { MapGame, MapHometown } from './page';
+import type { HometownPin } from './page';
 
-const TravelMapClient = dynamicImport(() => import('./TravelMapClient'), {
+const HometownsMapClient = dynamicImport(() => import('./HometownsMapClient'), {
   ssr: false,
   loading: () => (
     <div
@@ -20,6 +20,6 @@ const TravelMapClient = dynamicImport(() => import('./TravelMapClient'), {
   ),
 });
 
-export default function MapWrapper({ games, hometowns }: { games: MapGame[]; hometowns: MapHometown[] }) {
-  return <TravelMapClient games={games} hometowns={hometowns} />;
+export default function HometownsMapWrapper({ pins }: { pins: HometownPin[] }) {
+  return <HometownsMapClient pins={pins} />;
 }
