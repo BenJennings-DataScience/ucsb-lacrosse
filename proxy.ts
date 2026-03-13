@@ -6,8 +6,8 @@ const AUTH_VALUE = 'ucsb_lacrosse_authenticated';
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow login page and login API through
-  if (pathname === '/login' || pathname === '/api/login') {
+  // Allow login page and all API routes through (APIs rely on Supabase RLS for security)
+  if (pathname === '/login' || pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
 

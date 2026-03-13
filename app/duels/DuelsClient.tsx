@@ -44,6 +44,20 @@ interface LeaderboardEntry {
   totalDonated: number;
 }
 
+/** Default context blurbs for known props when DB context is null */
+function getPropContextBlurb(playerName: string, statType: string): string | null {
+  const key = `${playerName.trim().toLowerCase()}|${statType.trim().toLowerCase()}`;
+  const blurbs: Record<string, string> = {
+    'reid habas|goals':
+      'Habas is averaging 1.9 goals/game this season — this line asks if he goes beast mode. In his last 3 games: 3, 1, 4 goals.',
+    'ucsb long pole|long pole goals':
+      'UCSB long poles rarely crack the scoresheet — but when they do, it\'s electric. Will a d-pole find the back of the net?',
+    'ucsb team|total points scored':
+      'UCSB is averaging 12+ goals per game. Santa Clara has allowed 15+ in multiple games. Does the offense explode?',
+  };
+  return blurbs[key] ?? null;
+}
+
 function formatDate(iso: string | null): string {
   if (!iso) return '';
   try {
@@ -115,10 +129,12 @@ function ChallengeModal({
   const [challengerEmail, setChallengerEmail] = useState('');
   const [opponentName, setOpponentName] = useState('');
   const [opponentEmail, setOpponentEmail] = useState('');
+  const [opponentPhone, setOpponentPhone] = useState('');
   const [pledgeAmount, setPledgeAmount] = useState('25');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [notified, setNotified] = useState<{ email: boolean; sms: boolean } | null>(null);
 
   const PRESETS = [10, 25, 50, 100];
 
@@ -142,8 +158,27 @@ function ChallengeModal({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Submission failed');
+
+      // Fire notification (non-blocking — don't let it fail the challenge)
+      const notify = await fetch('/api/notify-challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          challengerName: challengerName.trim(),
+          opponentName: opponentName.trim(),
+          opponentEmail: opponentEmail.trim() || null,
+          opponentPhone: opponentPhone.trim() || null,
+          playerName: modal.duel.player_name,
+          statType: modal.duel.stat_type,
+          line: modal.duel.line,
+          challengerSide: modal.side,
+          pledgeAmount: parseFloat(pledgeAmount),
+        }),
+      }).then((r) => r.json()).catch(() => ({ emailSent: false, smsSent: false }));
+      setNotified({ email: notify.emailSent, sms: notify.smsSent });
+
       setDone(true);
-      setTimeout(() => { onSuccess(); onClose(); }, 2000);
+      setTimeout(() => { onSuccess(); onClose(); }, 3000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Submission failed');
     } finally {
@@ -199,9 +234,24 @@ function ChallengeModal({
           <div style={{ textAlign: 'center', padding: '1rem 0' }}>
             <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>⚔️</div>
             <h3 style={{ color: '#f8fafc', fontWeight: 800, margin: '0 0 8px' }}>Challenge Issued!</h3>
-            <p style={{ color: '#94a3b8', fontSize: 14, margin: 0 }}>
+            <p style={{ color: '#94a3b8', fontSize: 14, margin: '0 0 12px' }}>
               The gauntlet has been thrown. Honor the pledge.
             </p>
+            {notified && (notified.email || notified.sms) && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
+                {notified.email && (
+                  <span style={{ fontSize: 12, color: '#4ade80' }}>✉️ Email notification sent</span>
+                )}
+                {notified.sms && (
+                  <span style={{ fontSize: 12, color: '#4ade80' }}>📱 Text notification sent</span>
+                )}
+              </div>
+            )}
+            {notified && !notified.email && !notified.sms && (opponentEmail || opponentPhone) && (
+              <p style={{ fontSize: 12, color: '#f87171', margin: '8px 0 0' }}>
+                Notification failed — let them know manually.
+              </p>
+            )}
           </div>
         ) : (
           <>
@@ -233,18 +283,27 @@ function ChallengeModal({
                 </div>
               </div>
 
+              <div>
+                <label style={labelStyle}>Opponent&apos;s Name *</label>
+                <input required value={opponentName} onChange={(e) => setOpponentName(e.target.value)}
+                  placeholder="Rival Gaucho" style={inputStyle} />
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
-                  <label style={labelStyle}>Opponent&apos;s Name *</label>
-                  <input required value={opponentName} onChange={(e) => setOpponentName(e.target.value)}
-                    placeholder="Rival Gaucho" style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Opponent&apos;s Email</label>
+                  <label style={labelStyle}>Their Email</label>
                   <input type="email" value={opponentEmail} onChange={(e) => setOpponentEmail(e.target.value)}
                     placeholder="them@example.com" style={inputStyle} />
                 </div>
+                <div>
+                  <label style={labelStyle}>Their Phone</label>
+                  <input type="tel" value={opponentPhone} onChange={(e) => setOpponentPhone(e.target.value)}
+                    placeholder="(805) 555-0100" style={inputStyle} />
+                </div>
               </div>
+              <p style={{ fontSize: 11, color: '#475569', margin: '-0.5rem 0 0' }}>
+                Add email and/or phone to notify them of the challenge.
+              </p>
 
               <div>
                 <label style={labelStyle}>Pledge Amount * ($10 min)</label>
@@ -392,10 +451,10 @@ function PropCard({
           </p>
         )}
 
-        {/* Context blurb */}
-        {duel.context && (
+        {/* Context blurb — DB value takes priority, falls back to hardcoded blurbs */}
+        {(duel.context || getPropContextBlurb(duel.player_name, duel.stat_type)) && (
           <p style={{ color: '#94a3b8', fontSize: 13, lineHeight: 1.55, margin: '10px 0 0', fontStyle: 'italic' }}>
-            {duel.context}
+            {duel.context ?? getPropContextBlurb(duel.player_name, duel.stat_type)}
           </p>
         )}
 
