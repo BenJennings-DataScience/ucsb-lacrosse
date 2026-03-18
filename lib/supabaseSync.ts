@@ -9,31 +9,32 @@ import { deriveHometownCoords } from './hometownCoords';
 
 const SEASON_YEAR = 2026;
 
-// Cache season ID in memory so we don't query it on every sync call
-let cachedSeasonId: string | null = null;
+// Cache season IDs in memory keyed by year
+const seasonIdCache = new Map<number, string>();
 
-async function getOrCreateSeason(): Promise<string> {
-  if (cachedSeasonId) return cachedSeasonId;
+async function getOrCreateSeason(year = SEASON_YEAR): Promise<string> {
+  const cached = seasonIdCache.get(year);
+  if (cached) return cached;
 
   const { data: existing } = await supabase
     .from('seasons')
     .select('id')
-    .eq('year', SEASON_YEAR)
+    .eq('year', year)
     .maybeSingle();
 
   if (existing?.id) {
-    cachedSeasonId = existing.id;
+    seasonIdCache.set(year, existing.id);
     return existing.id;
   }
 
   const { data: created, error } = await supabase
     .from('seasons')
-    .insert({ year: SEASON_YEAR })
+    .insert({ year })
     .select('id')
     .single();
 
   if (error) throw error;
-  cachedSeasonId = created.id;
+  seasonIdCache.set(year, created.id);
   return created.id;
 }
 
@@ -44,10 +45,10 @@ const MONTH_MAP: Record<string, string> = {
   Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12',
 };
 
-function toIsoDate(month: string, date: string): string | null {
+function toIsoDate(month: string, date: string, year: number): string | null {
   const m = MONTH_MAP[month];
   if (!m) return null;
-  return `${SEASON_YEAR}-${m}-${date.padStart(2, '0')}`;
+  return `${year}-${m}-${date.padStart(2, '0')}`;
 }
 
 function parseScores(score: string | null): { ucsbScore: number | null; opponentScore: number | null } {
@@ -59,8 +60,8 @@ function parseScores(score: string | null): { ucsbScore: number | null; opponent
 
 // ─── Schedule sync ────────────────────────────────────────────────────────────
 
-export async function syncScheduleToSupabase(data: ScheduleData): Promise<void> {
-  const seasonId = await getOrCreateSeason();
+export async function syncScheduleToSupabase(data: ScheduleData, year = SEASON_YEAR): Promise<void> {
+  const seasonId = await getOrCreateSeason(year);
 
   // Keep season record (wins/losses) up to date
   const overallMatch = data.record.overall.match(/(\d+)\s*[-–]\s*(\d+)/);
@@ -72,8 +73,9 @@ export async function syncScheduleToSupabase(data: ScheduleData): Promise<void> 
   }
 
   for (const game of data.games) {
-    const isoDate = toIsoDate(game.month, game.date);
+    const isoDate = toIsoDate(game.month, game.date, year);
     if (!isoDate) continue;
+    if (!game.opponent) continue;
 
     const { ucsbScore, opponentScore } = parseScores(game.score ?? null);
 
@@ -84,29 +86,25 @@ export async function syncScheduleToSupabase(data: ScheduleData): Promise<void> 
       else if (r.startsWith('L')) isWin = false;
     }
 
-    const { data: existing } = await supabase
-      .from('games')
-      .select('id')
-      .eq('date', isoDate)
-      .eq('opponent', game.opponent)
-      .maybeSingle();
-
     const payload = {
       season_id: seasonId,
       date: isoDate,
       opponent: game.opponent,
       is_home: !game.isAway,
+      venue: game.venue || null,
       ucsb_score: ucsbScore,
       opponent_score: opponentScore,
       is_win: isWin,
       notes: game.venue || null,
     };
 
-    if (existing?.id) {
-      await supabase.from('games').update(payload).eq('id', existing.id);
-    } else {
-      await supabase.from('games').insert(payload);
-    }
+    // Use native upsert — requires the unique constraint:
+    // ALTER TABLE games ADD CONSTRAINT games_season_date_opponent_key UNIQUE (season_id, date, opponent);
+    const { error } = await supabase
+      .from('games')
+      .upsert(payload, { onConflict: 'season_id,date,opponent' });
+
+    if (error) console.error('[Supabase sync] game upsert:', game.opponent, isoDate, error.message);
   }
 }
 

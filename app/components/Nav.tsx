@@ -20,9 +20,11 @@ const NAV_ITEMS: NavItem[] = [
     kind: 'dropdown',
     label: 'Insights',
     items: [
+      { href: '/roster', label: 'Roster' },
       { href: '/stats', label: 'Stats' },
       { href: '/leaders', label: 'Leaders' },
       { href: '/polls', label: 'Polls' },
+      { href: '/insights', label: 'Record vs Teams' },
     ],
   },
   {
@@ -42,6 +44,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/duels', label: 'Gaucho Duel ⚔️' },
     ],
   },
+  { kind: 'link', href: '/alumni', label: 'Alumni' },
 ];
 
 function DropdownMenu({

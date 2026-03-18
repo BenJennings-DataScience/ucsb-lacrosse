@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { fetchSchedule } from '@/lib/scraper';
 import type { Game } from '@/lib/scraper';
+import HistoricalSection from './HistoricalSection';
 
 function ResultBadge({ result }: { result: string | null }) {
   if (!result) return <span className="badge-upcoming">TBD</span>;
@@ -154,6 +155,8 @@ export default async function SchedulePage() {
         </a>
         {' '}· Cached for 1 hour
       </p>
+
+      <HistoricalSection />
     </div>
   );
 }

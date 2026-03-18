@@ -118,17 +118,14 @@ function normalizeOpponent(name: string): string {
 // ─── Simple in-process cache ────────────────────────────────────────────────
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 let scheduleCache: { data: ScheduleData; ts: number } | null = null;
+const historicalScheduleCache = new Map<number, { data: ScheduleData; ts: number }>();
 let statsCache: { data: StatsData; ts: number } | null = null;
 let rosterCache: { data: RosterPlayer[]; ts: number } | null = null;
 const playerProfileCache = new Map<string, { data: PlayerProfile; ts: number }>();
 
-// ─── Schedule ────────────────────────────────────────────────────────────────
-export async function fetchSchedule(): Promise<ScheduleData> {
-  if (scheduleCache && Date.now() - scheduleCache.ts < CACHE_TTL) {
-    return scheduleCache.data;
-  }
-
-  const res = await fetch('https://mcla.us/teams/uc-santa-barbara/2026/schedule', FETCH_OPTS);
+// ─── Schedule (shared parsing logic) ─────────────────────────────────────────
+async function parseSchedulePage(year: number): Promise<ScheduleData> {
+  const res = await fetch(`https://mcla.us/teams/uc-santa-barbara/${year}/schedule`, FETCH_OPTS);
   const html = await res.text();
   const $ = cheerio.load(html);
 
@@ -168,7 +165,25 @@ export async function fetchSchedule(): Promise<ScheduleData> {
     });
   });
 
-  const data: ScheduleData = { record, games };
+  return { record, games };
+}
+
+// Fetch an arbitrary past season — cached per year, no Supabase sync (import script handles that)
+export async function fetchScheduleForYear(year: number): Promise<ScheduleData> {
+  const cached = historicalScheduleCache.get(year);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
+  const data = await parseSchedulePage(year);
+  historicalScheduleCache.set(year, { data, ts: Date.now() });
+  return data;
+}
+
+// ─── Schedule (current season) ────────────────────────────────────────────────
+export async function fetchSchedule(): Promise<ScheduleData> {
+  if (scheduleCache && Date.now() - scheduleCache.ts < CACHE_TTL) {
+    return scheduleCache.data;
+  }
+
+  const data = await parseSchedulePage(2026);
   scheduleCache = { data, ts: Date.now() };
   // Persist to Supabase asynchronously — don't block the API response
   syncScheduleToSupabase(data).catch((err) =>
